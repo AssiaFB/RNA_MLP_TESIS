@@ -184,7 +184,7 @@ if st.button("▶️ Ejecutar predición"):
 
     entrada=np.concatenate([Z,coordenadax,S,granulometria_val1,[Q],[manning],[TC],[Hr]]).reshape(1, -1)
     
-    RNA_model=load_model("RNA_MLP_EROSION.h5",compile=False)
+    RNA_model=load_model("RNA_MLP_EROSION.keras",compile=False)
     
     entrada=scaler_D_RS_I.transform(entrada)
     predct=scaler_D_RS_O.inverse_transform(RNA_model.predict(entrada))[0]
