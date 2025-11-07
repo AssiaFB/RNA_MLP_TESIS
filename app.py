@@ -198,7 +198,7 @@ try:
         )
 
         #TÍTULO Y ETIQUETAS
-        ax.set_title("Erosión en 24 hr", fontsize=13, fontweight="bold")
+        ax.set_title("Erosión y sedimentación", fontsize=13, fontweight="bold")
         ax.set_xlabel("X (m)", fontsize=11)
         ax.set_ylabel("Z (m)", fontsize=11)
 
@@ -237,4 +237,5 @@ try:
         )
 
 except:
+
     print("fallo algo")
