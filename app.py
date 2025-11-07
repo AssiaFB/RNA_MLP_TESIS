@@ -4,80 +4,7 @@ import numpy as np
 from tensorflow.keras.models import load_model
 import matplotlib.pyplot as plt
 from io import BytesIO
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, Normalizer
-import requests
-
-#CARGAR DATA
-enlace=r"https://upcedupe-my.sharepoint.com/:x:/g/personal/u20211c225_upc_edu_pe/ERXL-HiGV2JPvAwYixH8P0sBysPvv9lj96VIVKXU4Mxcxw?download=1" #download=1
-#Simula navegador
-headers={"User-Agent": "Mozilla/5.0"}
-#Hace la solicitud al servidor
-response=requests.get(enlace, headers=headers)
-archivo=BytesIO(response.content)
-read=pd.ExcelFile(archivo)
-n_muestras=20
-input=[]
-output=[]
-for i in range(n_muestras):
-    name_hoja=f"M{i+1}"
-    hoja=read.parse(name_hoja)
-    granulometria=np.array(hoja["Granulometria"][0:20])
-    Q_in=hoja["Q"][0]
-    n_manning=hoja["n_manning"][0]
-    dx=hoja["dx"][0]
-    Temp=hoja["T"][0]
-    cordenadax=np.array(hoja["Ubicación"][0:101])   
-    #Bucle
-    for delta_t in range(1,24):     #1h a 24h
-        for k in range(24-delta_t):     #para no pasar a D25
-            Z=np.array(hoja[f"D{k+1}"][0:101][::-1])
-            S=-np.gradient(Z,dx)
-            Contenidos_data_E=np.concatenate([Z.T,cordenadax.T,S.T,granulometria.T,[Q_in],[n_manning],[Temp],[delta_t]],axis=0)
-            Salida=np.array(hoja[f"D{k+1+delta_t}"][0:101][::-1]).T
-            output.append(Salida)
-            input.append(Contenidos_data_E)
-input=np.vstack(input)
-output=np.vstack(output)
-
-#Escalador
-#Creacion de escaladores Input
-scaler_D_MMS_I=MinMaxScaler()
-scaler_D_SS_I=StandardScaler()
-scaler_D_RS_I=RobustScaler()
-scaler_D_NN_L1_I=Normalizer(norm="l1")
-scaler_D_NN_L2_I=Normalizer(norm="l2")
-scaler_D_NN_max_I=Normalizer(norm="max")
-
-#Creacion de escaladores Output
-scaler_D_MMS_O=MinMaxScaler()
-scaler_D_SS_O=StandardScaler()
-scaler_D_RS_O=RobustScaler()
-scaler_D_NN_L1_O=Normalizer(norm="l1")
-scaler_D_NN_L2_O=Normalizer(norm="l2")
-scaler_D_NN_max_O=Normalizer(norm="max")
-
-#Normalizar
-IRS=scaler_D_RS_I.fit_transform(input)
-ORS=scaler_D_RS_O.fit_transform(output)
-
-ISS=scaler_D_SS_I.fit_transform(input)
-OSS=scaler_D_SS_O.fit_transform(output)
-
-IMM=scaler_D_MMS_I.fit_transform(input)
-OMM=scaler_D_MMS_O.fit_transform(output)
-
-INN1=scaler_D_NN_L1_I.fit_transform(input)
-ONN1=scaler_D_NN_L1_O.fit_transform(output)
-
-INN2=scaler_D_NN_L2_I.fit_transform(input)
-ONN2=scaler_D_NN_L2_O.fit_transform(output)
-
-INNmax=scaler_D_NN_max_I.fit_transform(input)
-ONNmax=scaler_D_NN_max_O.fit_transform(output)
-
-
-
-#python -m streamlit run app.py
+import io, base64
 
 st.set_page_config(
     page_title="RNA_MLP_EROSION",
@@ -85,125 +12,229 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🌊 RNA MLP PARA LA PREDICCIÓN DE EROSIÓN EN UN CANAL RECTANGULAR")
+st.markdown("""
+<div style='text-align: center;'>
+    <h1>🌊 RNA MLP PARA LA PREDICCIÓN DE EROSIÓN Y SEDIMENTACIÓN EN UN CANAL VARIABLE RECTANGULAR</h1>
+</div>
+""", unsafe_allow_html=True)
+
 
 with st.expander("🔬 Descripción del proyecto",expanded=True):
     st.markdown("""
     <div style='text-align: justify; font-size: 16px;'>
-    Este proyecto consiste en un estudio experimental donde se entrena una <b>red neuronal artificial tipo MLP (Perceptrón Multicapa)</b> para predecir la <b>socavación en un canal rectangular</b> de laboratorio con condiciones controladas.
+    Este proyecto desarrolla una <b>herramienta web interactiva</b> basada en Python y Streamlit, diseñada para procesar las 
+    <b>variables hidráulicas y geométricas</b> que sirven como entrada para un modelo de <b>red neuronal multicapa (MLP)</b>. 
+    El objetivo principal es permitir la <b>predicción del comportamiento erosivo</b> en un canal rectangular a partir de 
+    condiciones definidas por el usuario.
 
-    El canal tiene dimensiones fijas: <b>ancho (b) = 0.5 m</b>, <b>altura (h) = 0.7 m</b> y <b>longitud (L) = 10 m</b>. A lo largo de este canal se simulan distintos escenarios de flujo, variando parámetros como el <b>caudal</b>, la <b>pendiente</b> y otras condiciones hidráulicas, con el fin de observar su influencia en el desarrollo de la erosión en el lecho.
+    El aplicativo integra las características esenciales utilizadas por el modelo, tales como la <b>granulometría del material</b>, 
+    el <b>coeficiente de Manning</b>, el <b>caudal de flujo</b>, el <b>espaciamiento entre nodos</b>, la <b>longitud del tramo</b>, 
+    la <b>temperatura del agua</b> y el <b>ancho del canal</b>. Estas variables conforman el vector de entrada con el cual la red 
+    neuronal genera la predicción del perfil erosivo.
 
-    Los datos obtenidos se utilizan para entrenar el modelo MLP, que busca reconocer patrones no lineales entre las condiciones iniciales del flujo y la magnitud de la socavación resultante. Este enfoque permite evaluar el potencial de las redes neuronales como herramienta de análisis en problemas hidrodinámicos complejos, dentro de un entorno de laboratorio bien definido.
+    A través de esta plataforma, el usuario puede ingresar parámetros personalizados, ejecutar el modelo entrenado y visualizar 
+    los resultados de forma inmediata mediante gráficos dinámicos y métricas complementarias. Esta solución constituye un método 
+    accesible, rápido y eficiente para el análisis de erosión, integrando <b>inteligencia artificial</b> dentro de un entorno 
+    intuitivo orientado a la práctica ingenieril.
     </div>
     """, unsafe_allow_html=True)
 
 with st.expander("🔬 Metricas de Entrenamiento",expanded=True):
     st.markdown("""
     <div style='text-align: center; font-size: 18px;'>
-    📈 R² = 99.96693%<br>
-    📉 MAPE = 0.30369%<br>
-    🕯️ Loss: 0.002697428222745657
+    📊 <b>MSE</b> = 0.0459<br>
+    📉 <b>RMSE</b> = 0.2143<br>
+    ✅ <b>MAE</b> = 0.0205<br>
+    📌 <b>MAPE</b> = 17.3038 %<br>
+    📈 <b>R²</b> = 0.8745<br>
+    🧭 <b>MBE</b> = -0.0205
     </div>
     """, unsafe_allow_html=True)
 
+    with st.expander("🔎 Parametros",expanded=True):
+        #Crear un DataFrame de ejemplo
+        data=pd.DataFrame({
+            "Caudal (m³/s)": [3],
+            "T (C°)": [20.0],
+            "Manning":[0.035],
+            "dx (m)":[0.2],
+            "Longitud (m)":[20.0],
+            "Zb-inicial (m)":[29.9999],
+            "Zb-final (m)":[30.1999],
+            "Ancho (m)":[3.000]
+        })
 
-with st.expander("🔎 Parametros",expanded=True):
-    #Crear un DataFrame de ejemplo
-    data=pd.DataFrame({
-        "Caudal (m³/s)": [0.05],
-        "T (C°)": [20.0],
-        "Manning":[0.025],
-        "X-inicio (m)":[0.0],
-        "X-final (m)":[10.0001],
-        "Zb-inicial (m)":[40.3],
-        "Zb-final (m)":[40.0001],
-        "Tiempo (Simulado) (Hr.)":[1.0]
-    })
+        #Mostrar la tabla editable /num_rows="dynamic",
+        edited_data=st.data_editor(
+                data,
+                use_container_width=True,
+                column_config={
+                "Caudal (m³/s)": st.column_config.NumberColumn(
+                    "Caudal (m³/s)", min_value=0.0, step=0.00001
+                ),
+                "T (C°)": st.column_config.NumberColumn(
+                    "T (C°)", min_value=0.0, step=0.00001
+                ),
+                "Manning": st.column_config.NumberColumn(
+                    "Manning", min_value=0.0, step=0.00001
+                ),
+                "dx (m)": st.column_config.NumberColumn(
+                    "dx (m)", min_value=0.0, step=0.00001
+                ),
+                "Longitud (m)": st.column_config.NumberColumn(
+                    "Longitud (m)", min_value=0.0, step=0.00001
+                ),
+                "Zb-inicial (m)": st.column_config.NumberColumn(
+                    "Zb-inicial (m)", min_value=0.0, step=0.00001
+                ),
+                "Zb-final (m)": st.column_config.NumberColumn(
+                    "Zb-final (m)", min_value=0.0, step=0.00001
+                ),
+                "Ancho (m)": st.column_config.NumberColumn(
+                    "Ancho (m)", min_value=0.0, step=0.00001
+                )
+                }
+                )
 
-    #Mostrar la tabla editable /num_rows="dynamic",
-    edited_data=st.data_editor(
-        data,
-        use_container_width=True,
-        column_config={
-            "Caudal (m³/s)": st.column_config.NumberColumn("Caudal (m³/s)", min_value=0.,step=0.00001),
-            "T (C°)": st.column_config.NumberColumn("T (C°)", min_value=0.0,step=0.00001),
-            "Manning": st.column_config.NumberColumn("Manning", min_value=0.0,step=0.00001),
-            "X-inicio (m)": st.column_config.NumberColumn("X-inicio (m)", min_value=0.0,step=0.00001),
-            "X-final (m)": st.column_config.NumberColumn("X-final (m)", min_value=0.0,step=0.00001),
-            "Zb-inicial (m)": st.column_config.NumberColumn("Zb-inicial (m)", min_value=0.0000,step=0.00001),
-            "Zb-final (m)": st.column_config.NumberColumn("Zb-final (m)", min_value=0.0,step=0.00001),
-            "Tiempo (Simulado) (Hr.)": st.column_config.NumberColumn("Tiempo (Simulado) (Hr.)", min_value=0.0,step=0.00001)
+    with st.expander("Granulometría ",expanded=True):
+        
+        valores_mm=[
+            0.004, 0.008, 0.016, 0.032, 0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8,
+            16, 32, 64, 128, 256, 512, 1024, 2048]
+        
+        valores_porcentaje=[
+        0,
+        0,
+        0,
+        0,
+        23.3,
+        38.18972973,
+        59.96972973,
+        76.54831325,
+        84.52724138,
+        88.26,
+        92.24550725,
+        96.39164557,
+        99.24526316,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100
+    ]
+
+        tamiz=pd.DataFrame([valores_porcentaje], columns=[f"{m} mm" for m in valores_mm])
+        
+        tamiz2=st.data_editor(
+            tamiz,
+            use_container_width=True,
+            column_config={
+            col: st.column_config.NumberColumn(col, min_value=0.0, max_value=100.0, step=0.00001)
+            for col in tamiz.columns
         }
-    )
+        )
 
-with st.expander("Granulometría ",expanded=True):
-    
-    valores_mm=[
-        0.004, 0.008, 0.016, 0.032, 0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8,
-        16, 32, 64, 128, 256, 512, 1024, 2048]
-    
-    valores_porcentaje=[
-        0, 0, 0, 0, 3.691666667, 11.15635135, 32.43306306, 65.25578313,
-        74.41965517, 77.98, 87.41115942, 95.88917722, 98.155, 100, 100,
-        100, 100, 100, 100, 100]
+try:        
+    st.title("🔘 Botón de Ejecución")
 
-    tamiz=pd.DataFrame([valores_porcentaje], columns=[f"{m} mm" for m in valores_mm])
-    
-    tamiz2=st.data_editor(
-        tamiz,
-        use_container_width=True,
-        column_config={
-        col: st.column_config.NumberColumn(col, min_value=0.0, max_value=100.0, step=0.00001)
-        for col in tamiz.columns
-    }
-    )
-    
-st.title("🔘 Botón de Ejecución")
+    # Botón
+    if st.button("▶️ Ejecutar predición"):
+        Q=float(edited_data["Caudal (m³/s)"].iloc[0])
+        Zi=float(edited_data["Zb-inicial (m)"].iloc[0])
+        Zf=float(edited_data["Zb-final (m)"].iloc[0])
+        manning=float(edited_data["Manning"].iloc[0])
+        TC=float(edited_data["T (C°)"].iloc[0])
+        dx=float(edited_data["dx (m)"].iloc[0])
+        long=float(edited_data["Longitud (m)"].iloc[0])
+        ancho=float(edited_data["Ancho (m)"].iloc[0])
+        
+        coordenadax=np.linspace(0,long,101)
+        z_elev=np.linspace(Zi, Zf, 101)
+        S=(Zf-Zi)/long
 
-# Botón
-if st.button("▶️ Ejecutar predición"):
-    Q=float(edited_data["Caudal (m³/s)"].iloc[0])
-    Zi=float(edited_data["Zb-inicial (m)"].iloc[0])
-    Zf=float(edited_data["Zb-final (m)"].iloc[0])
-    Xi=float(edited_data["X-inicio (m)"].iloc[0])
-    Xf=float(edited_data["X-final (m)"].iloc[0])
-    manning=float(edited_data["Manning"].iloc[0])
-    TC=float(edited_data["T (C°)"].iloc[0])
-    Hr=float(edited_data["Tiempo (Simulado) (Hr.)"].iloc[0])
-    coordenadax=np.linspace(Xi,Xf,101)
-    Z=[]
-    S=(Zi-Zf)/(Xf-Xi)
+        st.write(f"📐 Pendiente calculada: {S:.5f}")
 
-    st.write(f"📐 Pendiente calculada: {S:.5f}")
-    
-    for i in range(101):
-        Z.append(Zi-coordenadax[i]*S)
-    granulometria_val1=tamiz2.values.flatten().tolist()
-    S=-np.gradient(Z,coordenadax)
+        granulometria_val1=tamiz2.values.tolist()[0]
 
-    entrada=np.concatenate([Z,coordenadax,S,granulometria_val1,[Q],[manning],[TC],[Hr]]).reshape(1, -1)
+        entrada=np.concatenate([[manning],[Q],[ancho],[dx],[long],[TC], granulometria_val1,  z_elev]).reshape(1, -1)
+        
+        
+        RNA_model=load_model("RNA_MLP_EROSION.h5",compile=False)
+        
+        predct=RNA_model.predict(entrada)[0]
+        
+        print(predct)
+        
+        prediccion=pd.DataFrame(predct)
+        
+        st.success("✅ Zb Originales (m):")
+        st.dataframe(z_elev, use_container_width=True)
+        
+        st.success("✅ Zb predichos (m):")
+        st.dataframe(prediccion, use_container_width=True)
+        
+        plt.style.use('classic')
+        fig, ax=plt.subplots(figsize=(9, 3.6))
+        #CURVA: Perfil inicial
+        ax.plot(
+            coordenadax,
+            z_elev,
+            linestyle="--",
+            color="#d62728",         #rojo elegante
+            linewidth=2,
+            label="Perfil inicial"
+        )
+
+        # ---- CURVA: Predicción ----
+        ax.plot(
+            coordenadax,
+            predct,
+            linestyle="-",
+            color="#1f77b4",         #azul clásico
+            linewidth=2.3,
+            label="Predicción"
+        )
+
+        #TÍTULO Y ETIQUETAS
+        ax.set_title("Erosión en 24 hr", fontsize=13, fontweight="bold")
+        ax.set_xlabel("X (m)", fontsize=11)
+        ax.set_ylabel("Z (m)", fontsize=11)
+
+        #RANGOS
+        ax.set_xlim(min(coordenadax), max(coordenadax))
+
+        #GRILLA
+        ax.grid(True, which="both", alpha=0.28)
+        ax.minorticks_on()
+        ax.ticklabel_format(style='plain', axis='y')
+        ax.get_yaxis().get_major_formatter().set_useOffset(False)
     
-    RNA_model=load_model("RNA_MLP_EROSION.keras",compile=False)
-    
-    entrada=scaler_D_RS_I.transform(entrada)
-    predct=scaler_D_RS_O.inverse_transform(RNA_model.predict(entrada))[0]
-    
-    prediccion=pd.DataFrame(predct)
-    
-    st.success("✅ Zb Originales (m):")
-    st.dataframe(Z, use_container_width=True)
-    
-    st.success("✅ Zb predichos (m):")
-    st.dataframe(prediccion, use_container_width=True)
-    
-    fig, ax=plt.subplots(figsize=(8, 3))
-    ax.plot(coordenadax,Z,"--r")
-    ax.plot(coordenadax,predct,"-b")
-    ax.set_title(f"Erosión en {Hr} hr.")
-    ax.grid(True)
-    ax.minorticks_on()
-    ax.set_xlim([min(coordenadax),max(coordenadax)])
-    ax.set_xlabel("X (m)")
-    ax.set_ylabel("Z (m)")
-    st.pyplot(fig)
+
+        #LEYENDA
+        ax.legend(
+            fontsize=10,
+            frameon=True,
+            framealpha=0.90,
+            edgecolor="gray",
+            loc="best"
+        )
+
+        buff=io.BytesIO()
+        fig.savefig(buff, format="png", dpi=300, facecolor=fig.get_facecolor(), bbox_inches='tight')
+        buff.seek(0)
+
+        b64=base64.b64encode(buff.getvalue()).decode()
+
+        st.markdown(
+            f"""
+            <div style="text-align:center;">
+                <img src="data:image/png;base64,{b64}" width="1100">
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+except:
+    print("fallo algo")
