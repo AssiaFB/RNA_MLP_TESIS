@@ -42,12 +42,12 @@ with st.expander("🔬 Descripción del proyecto",expanded=True):
 with st.expander("🔬 Metricas de Entrenamiento",expanded=True):
     st.markdown("""
     <div style='text-align: center; font-size: 18px;'>
-    📊 <b>MSE</b> = 0.0459<br>
-    📉 <b>RMSE</b> = 0.2143<br>
-    ✅ <b>MAE</b> = 0.0205<br>
-    📌 <b>MAPE</b> = 17.3038 %<br>
-    📈 <b>R²</b> = 0.8745<br>
-    🧭 <b>MBE</b> = -0.0205
+    📊 <b>MSE</b> = 0.0533<br>
+    📉 <b>RMSE</b> = 0.2309<br>
+    ✅ <b>MAE</b> = 0.0233<br>
+    📌 <b>MAPE</b> = 17.3013 %<br>
+    📈 <b>R²</b> = 0.8749<br>
+    🧭 <b>MBE</b> = -0.0233
     </div>
     """, unsafe_allow_html=True)
 
@@ -57,7 +57,6 @@ with st.expander("🔬 Metricas de Entrenamiento",expanded=True):
             "Caudal (m³/s)": [3],
             "T (C°)": [20.0],
             "Manning":[0.035],
-            "dx (m)":[0.2],
             "Longitud (m)":[20.0],
             "Zb-inicial (m)":[29.9999],
             "Zb-final (m)":[30.1999],
@@ -77,9 +76,6 @@ with st.expander("🔬 Metricas de Entrenamiento",expanded=True):
                 ),
                 "Manning": st.column_config.NumberColumn(
                     "Manning", min_value=0.0, step=0.00001
-                ),
-                "dx (m)": st.column_config.NumberColumn(
-                    "dx (m)", min_value=0.0, step=0.00001
                 ),
                 "Longitud (m)": st.column_config.NumberColumn(
                     "Longitud (m)", min_value=0.0, step=0.00001
@@ -146,7 +142,6 @@ try:
         Zf=float(edited_data["Zb-final (m)"].iloc[0])
         manning=float(edited_data["Manning"].iloc[0])
         TC=float(edited_data["T (C°)"].iloc[0])
-        dx=float(edited_data["dx (m)"].iloc[0])
         long=float(edited_data["Longitud (m)"].iloc[0])
         ancho=float(edited_data["Ancho (m)"].iloc[0])
         
@@ -158,7 +153,7 @@ try:
 
         granulometria_val1=tamiz2.values.tolist()[0]
 
-        entrada=np.concatenate([[manning],[Q],[ancho],[dx],[long],[TC], granulometria_val1,  z_elev]).reshape(1, -1)
+        entrada=np.concatenate([[manning],[Q],[ancho],[long],[TC], granulometria_val1,  z_elev]).reshape(1, -1)
         
         
         RNA_model=load_model("RNA_MLP_EROSION.h5",compile=False)
@@ -239,3 +234,4 @@ try:
 except:
 
     print("fallo algo")
+
