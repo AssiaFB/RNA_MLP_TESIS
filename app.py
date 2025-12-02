@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import io, base64
 
+#OJO E UNA DEMO
+
 st.set_page_config(
     page_title="RNA_MLP_EROSION",
     page_icon="🌊",
@@ -234,4 +236,5 @@ try:
 except:
 
     print("fallo algo")
+
 
